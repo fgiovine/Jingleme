@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import it.ingenia.badumtss.BuildConfig
 import it.ingenia.badumtss.core.AppState
 import it.ingenia.badumtss.core.Jingle
 import it.ingenia.badumtss.core.JingleChoice
@@ -202,6 +203,8 @@ fun ControlScreen(
             style = Stencil.copy(letterSpacing = 0.sp, fontSize = 11.sp),
             textAlign = TextAlign.Center
         )
+        Spacer(Modifier.height(8.dp))
+        Text("versione ${BuildConfig.VERSION_NAME}", style = Readout.copy(fontSize = 10.sp, color = Club.Dim))
         Spacer(Modifier.height(16.dp))
     }
 }

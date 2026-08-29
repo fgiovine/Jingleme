@@ -4,16 +4,32 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Il numero di build di GitHub Actions diventa il versionCode: ogni APK pubblicato
+// è più recente del precedente e si installa sopra senza disinstallare.
+val buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "0").toInt()
+
 android {
     namespace = "it.ingenia.badumtss"
     compileSdk = 35
+
+    // Chiave di firma fissa e versionata. Senza, ogni build del runner userebbe una
+    // chiave di debug generata al momento e Android rifiuterebbe l'aggiornamento
+    // per firma non corrispondente.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file("keystore/jingleme.jks")
+            storePassword = "jingleme"
+            keyAlias = "jingleme"
+            keyPassword = "jingleme"
+        }
+    }
 
     defaultConfig {
         applicationId = "it.ingenia.badumtss"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 1 + buildNumber
+        versionName = "1.$buildNumber"
     }
 
     buildTypes {
@@ -31,6 +47,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     // Il modello .tflite non deve essere compresso: l'Interpreter lo mappa in memoria.
     androidResources {
