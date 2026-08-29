@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,3 +32,12 @@ jobs:
           name: badumtss-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      # Pubblica l'APK come Release: si scarica con un tap dal telefono,
+      # senza login e senza zip da scompattare.
+      - name: Pubblica la release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ultimo
+          name: Ultimo build
+          files: app/build/outputs/apk/debug/app-debug.apk
