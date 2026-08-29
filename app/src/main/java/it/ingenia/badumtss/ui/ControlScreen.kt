@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -75,6 +76,7 @@ fun ControlScreen(
         Modifier
             .fillMaxSize()
             .background(Club.Velvet)
+            .safeDrawingPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -112,9 +114,9 @@ fun ControlScreen(
             if (!modelLoaded && (settings.mode == TriggerMode.AUTO || settings.mode == TriggerMode.LAUGH)) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Il riconoscimento delle risate richiede yamnet.tflite in assets. " +
-                        "Senza il modello resta attivo il rilevamento delle pause.",
-                    style = Stencil.copy(letterSpacing = 0.sp, fontSize = 12.sp, color = Club.Hot)
+                    "Rilevamento pause attivo. Il riconoscimento delle risate si accende " +
+                        "quando aggiungi yamnet.tflite in assets.",
+                    style = Stencil.copy(letterSpacing = 0.sp, fontSize = 12.sp, color = Club.Dim)
                 )
             }
         }
