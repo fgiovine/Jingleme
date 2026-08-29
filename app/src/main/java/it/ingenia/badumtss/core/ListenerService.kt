@@ -115,6 +115,7 @@ class ListenerService : Service() {
         player?.release(); player = null
         AppState.listening.value = false
         AppState.levelDb.value = -90f
+        AppState.armed.value = false
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
@@ -140,6 +141,8 @@ class ListenerService : Service() {
         if (++framesSinceLevel >= 3) {
             framesSinceLevel = 0
             AppState.levelDb.value = punchline.lastLevelDb
+            AppState.floorDb.value = punchline.floorDb
+            AppState.armed.value = punchline.isArmed
         }
 
         val inCooldown = now - lastFire < s.cooldownMs

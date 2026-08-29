@@ -1,6 +1,7 @@
 package it.ingenia.badumtss.core
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
@@ -23,14 +24,39 @@ object JingleFactory {
 
     const val SR = 44100
 
-    /** Restituisce i file pronti da caricare nel SoundPool, con la loro durata in ms. */
-    fun ensureJingles(context: Context): List<JingleFile> {
+    /**
+     * Raccoglie i file di ogni slot. Un nome che inizia con lo slug entra nel gruppo:
+     * laugh1, laugh2, laugh3 finiscono tutti fra le risate e vengono estratti a caso.
+     * Solo se un gruppo resta vuoto si ricorre alla sintesi.
+     */
+    fun ensureJingles(context: Context): Map<Jingle, List<JingleFile>> {
         val dir = File(context.cacheDir, "jingles").apply { mkdirs() }
-        return Jingle.entries.map { jingle ->
-            val fromAssets = copyFromAssetsIfPresent(context, jingle, dir)
-            if (fromAssets != null) return@map fromAssets
+        val pools = Jingle.entries.associateWith { mutableListOf<JingleFile>() }
 
-            val file = File(dir, "${jingle.slug}.wav")
+        val assets = runCatching { context.assets.list("jingles")?.toList() ?: emptyList() }
+            .getOrDefault(emptyList())
+
+        for (name in assets.sorted()) {
+            val ext = name.substringAfterLast('.', "").lowercase()
+            if (ext !in setOf("wav", "ogg", "mp3", "m4a")) continue
+            val base = name.substringBeforeLast('.').lowercase()
+            val slot = Jingle.entries.firstOrNull { base.startsWith(it.slug) } ?: continue
+
+            val out = File(dir, name)
+            if (!out.exists() || out.length() == 0L) {
+                val copied = runCatching {
+                    context.assets.open("jingles/$name").use { input ->
+                        FileOutputStream(out).use { input.copyTo(it) }
+                    }
+                }.isSuccess
+                if (!copied) continue
+            }
+            pools.getValue(slot).add(JingleFile(slot, out, durationMs(out)))
+        }
+
+        for (jingle in Jingle.entries) {
+            if (pools.getValue(jingle).isNotEmpty()) continue
+            val file = File(dir, "${jingle.slug}-synth.wav")
             if (!file.exists() || file.length() < 1024) {
                 val pcm = when (jingle) {
                     Jingle.RIMSHOT -> synthRimshot()
@@ -39,28 +65,26 @@ object JingleFactory {
                 }
                 writeWav(file, pcm)
             }
-            JingleFile(jingle, file, durationMs(file))
+            pools.getValue(jingle).add(JingleFile(jingle, file, durationMs(file)))
         }
+
+        return pools
     }
 
-    private fun copyFromAssetsIfPresent(context: Context, jingle: Jingle, dir: File): JingleFile? {
-        val names = listOf("${jingle.slug}.wav", "${jingle.slug}.ogg", "${jingle.slug}.mp3")
-        val available = runCatching { context.assets.list("jingles")?.toSet() ?: emptySet() }
-            .getOrDefault(emptySet())
-        val match = names.firstOrNull { it in available } ?: return null
-        val out = File(dir, match)
-        if (!out.exists() || out.length() == 0L) {
-            context.assets.open("jingles/$match").use { input ->
-                FileOutputStream(out).use { input.copyTo(it) }
+    /** Durata reale del file, qualunque sia il formato. */
+    private fun durationMs(file: File): Int {
+        val fromMeta = runCatching {
+            val r = MediaMetadataRetriever()
+            try {
+                r.setDataSource(file.absolutePath)
+                r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toInt()
+            } finally {
+                r.release()
             }
-        }
-        // Per i formati compressi non conosciamo la durata esatta: stima prudente.
-        val ms = if (match.endsWith(".wav")) durationMs(out) else 3000
-        return JingleFile(jingle, out, ms)
-    }
-
-    private fun durationMs(wav: File): Int {
-        val frames = max(0L, wav.length() - 44) / 2
+        }.getOrNull()
+        if (fromMeta != null && fromMeta > 0) return fromMeta
+        // Ripiego per i WAV sintetizzati, di cui conosciamo il formato esatto.
+        val frames = max(0L, file.length() - 44) / 2
         return ((frames * 1000) / SR).toInt()
     }
 

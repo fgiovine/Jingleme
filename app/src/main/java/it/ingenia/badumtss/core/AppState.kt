@@ -31,6 +31,8 @@ object AppState {
     val listening = MutableStateFlow(false)
     val levelDb = MutableStateFlow(-90f)
     val laughScore = MutableStateFlow(0f)
+    val floorDb = MutableStateFlow(-55f)
+    val armed = MutableStateFlow(false)
     val modelLoaded = MutableStateFlow(false)
     val lastFireAt = MutableStateFlow(0L)
     val lastReason = MutableStateFlow("")

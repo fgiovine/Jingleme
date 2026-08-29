@@ -12,11 +12,15 @@ import kotlin.random.Random
  * Tiene i campioni già decodificati in memoria: caricarli a runtime aggiungerebbe
  * ~200 ms, che è esattamente quello che rovina la battuta.
  *
- * Espone anche [mutedUntil]: finché il jingle suona il rilevatore deve ignorare il
- * microfono, altrimenti l'audio rientra, viene classificato come risata e si innesca
- * un loop infinito.
+ * Ogni slot può avere più file. Quando ce ne sono, la scelta è casuale ma evita di
+ * ripetere l'ultimo suonato: tre risate identiche di fila si notano subito.
+ *
+ * Espone [mutedUntil]: finché il jingle suona il rilevatore deve ignorare il
+ * microfono, altrimenti l'audio rientra e si innesca un loop.
  */
 class JinglePlayer(context: Context) {
+
+    private data class Sample(val soundId: Int, val durationMs: Int)
 
     private val pool: SoundPool = SoundPool.Builder()
         .setMaxStreams(3)
@@ -28,9 +32,10 @@ class JinglePlayer(context: Context) {
         )
         .build()
 
-    private val ids = HashMap<Jingle, Int>()
-    private val durations = HashMap<Jingle, Int>()
-    @Volatile private var loaded = 0
+    private val samples = HashMap<Jingle, List<Sample>>()
+    private val lastPlayed = HashMap<Jingle, Int>()
+    private val handler = Handler(Looper.getMainLooper())
+
     @Volatile var mutedUntil = 0L
         private set
 
@@ -38,33 +43,34 @@ class JinglePlayer(context: Context) {
     var tailMs = 350
 
     init {
-        val files = JingleFactory.ensureJingles(context)
-        pool.setOnLoadCompleteListener { _, _, status -> if (status == 0) loaded++ }
-        files.forEach { jf ->
-            ids[jf.jingle] = pool.load(jf.file.absolutePath, 1)
-            durations[jf.jingle] = jf.durationMs
+        JingleFactory.ensureJingles(context).forEach { (jingle, files) ->
+            samples[jingle] = files.map { Sample(pool.load(it.file.absolutePath, 1), it.durationMs) }
         }
     }
 
-    val isReady: Boolean get() = loaded >= ids.size
-
-    private val handler = Handler(Looper.getMainLooper())
-
     fun play(jingle: Jingle, volume: Float = 1f, attempt: Int = 0) {
-        val id = ids[jingle] ?: return
-        val stream = pool.play(id, volume, volume, 1, 0, 1f)
+        val pool0 = samples[jingle] ?: return
+        if (pool0.isEmpty()) return
+
+        val index = if (pool0.size == 1) 0 else {
+            var i: Int
+            do { i = Random.nextInt(pool0.size) } while (i == lastPlayed[jingle])
+            i
+        }
+        val sample = pool0[index]
+
+        val stream = pool.play(sample.soundId, volume, volume, 1, 0, 1f)
         if (stream == 0) {
             // Il campione non ha ancora finito di caricarsi: riprova a breve.
-            if (attempt < 6) handler.postDelayed({ play(jingle, volume, attempt + 1) }, 200)
+            if (attempt < 8) handler.postDelayed({ play(jingle, volume, attempt + 1) }, 200)
             return
         }
-        val dur = durations[jingle] ?: 2000
-        mutedUntil = SystemClock.elapsedRealtime() + dur + tailMs
+        lastPlayed[jingle] = index
+        mutedUntil = SystemClock.elapsedRealtime() + sample.durationMs + tailMs
     }
 
     fun playRandom(volume: Float = 1f) {
-        val pick = Jingle.entries[Random.nextInt(Jingle.entries.size)]
-        play(pick, volume)
+        play(Jingle.entries[Random.nextInt(Jingle.entries.size)], volume)
     }
 
     fun isMuted(): Boolean = SystemClock.elapsedRealtime() < mutedUntil

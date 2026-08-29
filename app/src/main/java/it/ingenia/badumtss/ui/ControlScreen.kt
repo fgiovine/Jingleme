@@ -63,6 +63,8 @@ fun ControlScreen(
     val fireAt by AppState.lastFireAt.collectAsState()
     val reason by AppState.lastReason.collectAsState()
     val modelLoaded by AppState.modelLoaded.collectAsState()
+    val floorDb by AppState.floorDb.collectAsState()
+    val armed by AppState.armed.collectAsState()
     val ctx = LocalContext.current
 
     var chase by remember { mutableFloatStateOf(0f) }
@@ -96,7 +98,15 @@ fun ControlScreen(
         Spacer(Modifier.height(24.dp))
         VuMeter(levelDb = levelDb, active = listening)
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = if (listening)
+                "voce ${levelDb.roundToInt()}  fondo ${floorDb.roundToInt()}  " +
+                    (if (armed) "PRONTO" else "-")
+            else "fermo",
+            style = Readout.copy(fontSize = 12.sp, color = if (armed) Club.Bulb else Club.Dim)
+        )
+        Spacer(Modifier.height(4.dp))
         Text(
             text = if (reason.isNotEmpty()) "ultimo: $reason" else "in attesa della prima battuta",
             style = Readout.copy(fontSize = 11.sp, color = Club.Dim)

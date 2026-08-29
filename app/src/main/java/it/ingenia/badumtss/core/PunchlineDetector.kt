@@ -29,8 +29,14 @@ class PunchlineDetector {
     var lastLevelDb = -90f
         private set
 
+    /** Esposti per il pannello diagnostico: senza numeri la taratura è alla cieca. */
+    var floorDb = -55f
+        private set
+    var isArmed = false
+        private set
+
     fun reset() {
-        speechMs = 0; silenceMs = 0; peakDb = -120f; armed = false
+        speechMs = 0; silenceMs = 0; peakDb = -120f; armed = false; isArmed = false
     }
 
     /** @return true se questo frame chiude una battuta. */
@@ -43,24 +49,34 @@ class PunchlineDetector {
         noiseFloorDb += if (db < noiseFloorDb) (db - noiseFloorDb) * 0.20f
         else (db - noiseFloorDb) * 0.0006f
 
-        val speechThresh = noiseFloorDb + (15f - 7f * sensitivity)
-        val peakThresh = noiseFloorDb + (24f - 11f * sensitivity)
-        val minBurstMs = 260
+        floorDb = noiseFloorDb
+
+        // Soglie basse di proposito: la catena vocale di Android comprime la dinamica,
+        // quindi tra silenzio e voce parlata restano spesso solo 10-12 dB, non 20.
+        val speechThresh = noiseFloorDb + (10f - 5f * sensitivity)
+        val peakThresh = noiseFloorDb + (15f - 8f * sensitivity)
+        val minBurstMs = 200
+
+        // Sotto questo livello assoluto non c'è voce, c'è una stanza vuota.
+        val floorGuard = -52f
 
         if (db > speechThresh) {
             speechMs += AudioEngine.FRAME_MS
             silenceMs = 0
             peakDb = max(peakDb, db)
-            if (speechMs >= minBurstMs && peakDb >= peakThresh) armed = true
+            if (speechMs >= minBurstMs && peakDb >= peakThresh && peakDb > floorGuard) {
+                armed = true
+                isArmed = true
+            }
         } else {
             silenceMs += AudioEngine.FRAME_MS
-            if (silenceMs > 120) speechMs = 0
+            if (silenceMs > 150) speechMs = 0
             if (armed && silenceMs >= holdMs) {
                 reset()
                 return true
             }
             // Se il silenzio si prolunga troppo la battuta è passata: nessuno ride più.
-            if (silenceMs > holdMs + 1500) reset()
+            if (silenceMs > holdMs + 2000) reset()
         }
         return false
     }

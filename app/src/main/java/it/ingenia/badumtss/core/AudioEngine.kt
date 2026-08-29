@@ -5,6 +5,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
+import android.media.audiofx.AutomaticGainControl
 import android.media.audiofx.NoiseSuppressor
 import android.util.Log
 
@@ -27,6 +28,7 @@ class AudioEngine(private val onFrame: (ShortArray) -> Unit) {
     private var record: AudioRecord? = null
     private var aec: AcousticEchoCanceler? = null
     private var ns: NoiseSuppressor? = null
+    private var agc: AutomaticGainControl? = null
     private var thread: Thread? = null
     @Volatile private var running = false
 
@@ -55,6 +57,11 @@ class AudioEngine(private val onFrame: (ShortArray) -> Unit) {
         }
         if (NoiseSuppressor.isAvailable()) {
             ns = NoiseSuppressor.create(rec.audioSessionId)?.apply { enabled = true }
+        }
+        // Il guadagno automatico va spento: comprimendo la dinamica appiattisce
+        // proprio il salto di volume su cui si basa il rilevamento della battuta.
+        if (AutomaticGainControl.isAvailable()) {
+            agc = AutomaticGainControl.create(rec.audioSessionId)?.apply { enabled = false }
         }
 
         record = rec
@@ -85,6 +92,7 @@ class AudioEngine(private val onFrame: (ShortArray) -> Unit) {
         thread = null
         aec?.release(); aec = null
         ns?.release(); ns = null
+        agc?.release(); agc = null
         record?.let {
             runCatching { it.stop() }
             it.release()
