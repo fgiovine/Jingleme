@@ -4,10 +4,10 @@ import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 
 enum class TriggerMode(val label: String, val hint: String) {
-    AUTO("Tutto", "Risate e pause"),
-    LAUGH("Risate", "Solo quando si ride"),
-    PAUSE("Pause", "Solo dopo la battuta"),
-    MANUAL("Manuale", "Solo i tasti qui sotto")
+    AUTO("Tutto", "Risate e pause dopo la battuta"),
+    LAUGH("Se si ride", "Serve il modello di riconoscimento"),
+    PAUSE("Se ci si ferma", "Scatta nella pausa dopo la battuta"),
+    MANUAL("A mano", "Solo i tasti in fondo")
 }
 
 enum class JingleChoice(val label: String) {

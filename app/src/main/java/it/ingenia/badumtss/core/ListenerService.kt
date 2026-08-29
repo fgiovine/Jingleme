@@ -99,6 +99,12 @@ class ListenerService : Service() {
         laugh = LaughDetector.create(this)
         AppState.modelLoaded.value = laugh != null
 
+        // Senza modello la modalità "se si ride" non farebbe scattare mai niente,
+        // e l'utente resterebbe a fissare un'app che sembra rotta.
+        if (laugh == null && AppState.settings.value.mode == TriggerMode.LAUGH) {
+            AppState.update(this) { it.copy(mode = TriggerMode.AUTO) }
+        }
+
         val e = AudioEngine(::onFrame)
         if (!e.start()) {
             AppState.lastReason.value = "microfono non disponibile"

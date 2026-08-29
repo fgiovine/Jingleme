@@ -44,10 +44,15 @@ class PunchlineDetector {
         val db = levelDb(frame)
         lastLevelDb = db
 
-        // Il fondo di rumore scende in fretta e risale piano: si adatta alla stanza
-        // senza farsi trascinare in alto da chi parla.
+        // Il fondo scende in fretta e risale piano, per adattarsi alla stanza senza
+        // farsi trascinare in alto da chi parla.
         noiseFloorDb += if (db < noiseFloorDb) (db - noiseFloorDb) * 0.20f
-        else (db - noiseFloorDb) * 0.0006f
+        else (db - noiseFloorDb) * 0.003f
+
+        // Un microfono che consegna zeri per qualche frame trascinerebbe il fondo a
+        // -100 dB, e da lì ogni respiro conta come voce: il silenzio non arriva più
+        // e il rilevatore resta bloccato. Nessuna stanza reale sta sotto i -72 dBFS.
+        noiseFloorDb = noiseFloorDb.coerceIn(-72f, -20f)
 
         floorDb = noiseFloorDb
 
@@ -67,6 +72,12 @@ class PunchlineDetector {
             if (speechMs >= minBurstMs && peakDb >= peakThresh && peakDb > floorGuard) {
                 armed = true
                 isArmed = true
+            }
+            // Nessuno parla ininterrottamente per quattro secondi: se succede il fondo
+            // è tarato male. Lo riporto appena sotto il livello corrente e riparto.
+            if (speechMs > 4000) {
+                noiseFloorDb = db - 5f
+                reset()
             }
         } else {
             silenceMs += AudioEngine.FRAME_MS

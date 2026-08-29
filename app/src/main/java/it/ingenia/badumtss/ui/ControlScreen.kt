@@ -113,11 +113,13 @@ fun ControlScreen(
         )
 
         Spacer(Modifier.height(30.dp))
-        Panel(title = "Cosa fa partire il jingle") {
+        Panel(title = "Quando parte") {
             Choices(
                 options = TriggerMode.entries.map { it.label },
                 selectedIndex = TriggerMode.entries.indexOf(settings.mode),
-                onSelect = { i -> AppState.update(ctx) { it.copy(mode = TriggerMode.entries[i]) } }
+                onSelect = { i -> AppState.update(ctx) { it.copy(mode = TriggerMode.entries[i]) } },
+                disabled = if (modelLoaded) emptySet()
+                           else setOf(TriggerMode.entries.indexOf(TriggerMode.LAUGH))
             )
             Spacer(Modifier.height(8.dp))
             Text(settings.mode.hint, style = Stencil.copy(letterSpacing = 0.sp, fontSize = 12.sp))
@@ -132,7 +134,7 @@ fun ControlScreen(
         }
 
         Spacer(Modifier.height(16.dp))
-        Panel(title = "Quale jingle") {
+        Panel(title = "Quale suono") {
             Choices(
                 options = JingleChoice.entries.map { it.label },
                 selectedIndex = JingleChoice.entries.indexOf(settings.choice),
@@ -345,19 +347,25 @@ private fun Panel(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Choices(options: List<String>, selectedIndex: Int, onSelect: (Int) -> Unit) {
+private fun Choices(
+    options: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    disabled: Set<Int> = emptySet()
+) {
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         options.forEachIndexed { i, label ->
             val on = i == selectedIndex
+            val off = i in disabled
             Box(
                 Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(9.dp))
                     .background(if (on) Club.Bulb else Club.Riser)
-                    .clickable { onSelect(i) }
+                    .clickable(enabled = !off) { onSelect(i) }
                     .padding(vertical = 11.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -366,7 +374,11 @@ private fun Choices(options: List<String>, selectedIndex: Int, onSelect: (Int) -
                     style = Stencil.copy(
                         letterSpacing = 0.5.sp,
                         fontSize = 12.sp,
-                        color = if (on) Club.Velvet else Club.Marquee
+                        color = when {
+                            off -> Club.Dim.copy(alpha = 0.45f)
+                            on -> Club.Velvet
+                            else -> Club.Marquee
+                        }
                     ),
                     maxLines = 1
                 )
